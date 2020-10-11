@@ -30,7 +30,10 @@ Leftover files are placed inside `./Tools/Decoding` - Remember to delete these a
 
 ### Todo:
 
-- Clean up dependencies
-- Multi-export support (FLAC, MP3, etc)
-- Automatically remove processed files once complete
-- More?
+- [ ] Clean up dependencies
+
+- [ ] Multi-export support (FLAC, MP3, etc)
+
+- [ ] Automatically remove processed files once complete
+
+- [ ] More?
