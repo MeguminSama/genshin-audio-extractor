@@ -1,0 +1,9 @@
+{
+  "name": "genshin-audio-extractor",
+  "version": "0.0.2",
+  "description": "Convert Genshin Impact .pck files into .wav",
+  "main": "decode.js",
+  "dependencies": {
+    "mkdirp": "^1.0.4"
+  }
+}
