@@ -8,7 +8,7 @@
 GenshinImpact_Data/StreamingAssets/Audio/GeneratedSoundBanks/Windows
 ```
 
-Move the .pck files you want to extract into the `Game Files` folder. The files *must* be directly inside the folder - no subdirectories.
+Move the .pck files you want to extract into the `input` folder. The files *must* be directly inside the folder - no subdirectories.
 
 2. install dependencies
 
@@ -22,18 +22,31 @@ npm install
 node decode.js
 ```
 
-The files in `./Game Files` will be converted to .wav files inside `./WAV`.
+The files in `./input` will be converted to .wav files inside `./output`.
 
-## Cleanup
+## Options
 
-Leftover files are placed inside `./Tools/Decoding` - Remember to delete these after you're done, as they use a lot of storage.
+You can pass an optional argument to export the audio in different formats.
+
+Valid arguments are `flac`, `mp3` and `flacandmp3`
+
+```bash
+node decode.js flac
+```
+
+Encoding details
+
+```
+flac: lossless, 16bit, 44100 sample rate
+mp3: 320kbit/s, 44100 sample rate
+```
 
 ### Todo:
 
 - [ ] Clean up dependencies
 
-- [ ] Multi-export support (FLAC, MP3, etc)
+- [x] Multi-export support (FLAC, MP3, etc)
 
-- [ ] Automatically remove processed files once complete
+- [x] Automatically remove processed files once complete
 
 - [ ] More?
