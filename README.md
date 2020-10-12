@@ -45,6 +45,8 @@ mp3: 320kbit/s, 44100 sample rate
 
 - [ ] Clean up dependencies
 
+- [ ] Cross-Platform (Win, Linux, OSX)
+
 - [x] Multi-export support (FLAC, MP3, etc)
 
 - [x] Automatically remove processed files once complete
