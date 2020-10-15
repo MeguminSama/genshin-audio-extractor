@@ -51,4 +51,6 @@ mp3: 320kbit/s, 44100 sample rate
 
 - [x] Automatically remove processed files once complete
 
+- [x] Multithreading
+
 - [ ] More?

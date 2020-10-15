@@ -5,151 +5,132 @@
  * When modifying or redistributing this project, do not modify this notice.
  */
 
+const os = require("os");
 const fs = require("fs");
 const path = require("path");
 const mkdirp = require("mkdirp");
-const util = require("util");
-const exec = util.promisify(require("child_process").execFile);
+const { StaticPool } = require("node-worker-threads-pool");
 const { rmraf } = require("./helpers/rmraf");
+const { pck2wem } = require("./helpers/pck2wem");
+const { wem2wav } = require("./helpers/wem2wav");
+const { wav2flac } = require("./helpers/wav2flac");
+const { wav2mp3 } = require("./helpers/wav2mp3");
 
-const libsDir = path.join(".", "libs");
-const quickBMS = path.join(libsDir, "quickbms.exe");
-const waveScanBMS = path.join(libsDir, "wavescan.bms");
-const vgmstream = path.join(libsDir, "vgmstream-cli.exe");
-const ffmpeg = path.join(libsDir, "ffmpeg.exe");
-
-const inputDir = path.join(".", "input");
-const baseProcessingDir = path.join(".", "processing");
-const outputDir = path.join(".", "output");
-const wavOutputDir = path.join(outputDir, "WAV");
-const flacOutputDir = path.join(outputDir, "FLAC");
-const mp3OutputDir = path.join(outputDir, "MP3");
-
-const extraExportArg = process.argv[2] || 0;
-
-const convertWav = async (subWavOutputDir, processingDir, createdFile) => {
-  const outputFile = path.join(
-    subWavOutputDir,
-    createdFile.split(".")[0] + ".wav"
-  );
-
-  const createdFilePath = path.join(processingDir, createdFile);
-  await exec(vgmstream, ["-o", outputFile, createdFilePath]);
-};
-
-const convertFlac = async (subOutputDir, wavDir, createdFile) => {
-  const outputFile = path.join(
-    subOutputDir,
-    createdFile.split(".")[0] + ".flac"
-  );
-
-  const wavFilePath = path.join(wavDir, createdFile.split(".")[0] + ".wav");
-  await exec(ffmpeg, [
-    "-i",
-    wavFilePath,
-    "-y",
-    "-af",
-    "aformat=s16:44100",
-    outputFile,
-  ]);
-};
-
-const convertMp3 = async (subOutputDir, wavDir, createdFile) => {
-  const outputFile = path.join(
-    subOutputDir,
-    createdFile.split(".")[0] + ".mp3"
-  );
-
-  const wavFilePath = path.join(wavDir, createdFile.split(".")[0] + ".wav");
-  await exec(ffmpeg, [
-    "-i",
-    wavFilePath,
-    "-y",
-    "-ar",
-    "44100",
-    "-b:a",
-    "320k",
-    outputFile,
-  ]);
-};
+const cpuCount = os.cpus().length;
 
 const main = async () => {
   const pckFiles = fs
-    .readdirSync(inputDir)
+    .readdirSync(path.join(".", "input"))
     .filter((f) => f.toLowerCase().endsWith(".pck"));
 
   console.info(`Found ${pckFiles.length} pck files`);
 
-  for (pckFile of pckFiles) {
-    const inputFile = path.join(inputDir, pckFile);
-    const processingDir = path.join(baseProcessingDir, pckFile.split(".")[0]);
+  const extraExportArg = process.argv[2] || "";
 
-    await mkdirp(processingDir);
+  const pck2wemPool = new StaticPool({ size: cpuCount, task: pck2wem });
+  const wem2wavPool = new StaticPool({ size: cpuCount, task: wem2wav });
+  const wav2flacPool = new StaticPool({ size: cpuCount, task: wav2flac });
+  const wav2mp3Pool = new StaticPool({ size: cpuCount, task: wav2mp3 });
 
-    await exec(quickBMS, [waveScanBMS, inputFile, processingDir]);
+  await Promise.all(
+    pckFiles.map(async (pckFile) => {
+      const processingDir = path.join(".", "processing", pckFile.split(".")[0]);
 
-    const createdFiles = fs.readdirSync(processingDir);
+      await mkdirp(processingDir);
 
-    const subWavOutputDir = path.join(wavOutputDir, pckFile.split(".")[0]);
-    const subFlacOutputDir = path.join(flacOutputDir, pckFile.split(".")[0]);
-    const subMp3OutputDir = path.join(mp3OutputDir, pckFile.split(".")[0]);
+      await pck2wemPool.exec({ pckFile, processingDir });
 
-    await mkdirp(subWavOutputDir);
+      const subWavOutputDir = path.join(
+        ".",
+        "output",
+        "WAV",
+        pckFile.split(".")[0]
+      );
+      const subFlacOutputDir = path.join(
+        ".",
+        "output",
+        "FLAC",
+        pckFile.split(".")[0]
+      );
+      const subMp3OutputDir = path.join(
+        ".",
+        "output",
+        "MP3",
+        pckFile.split(".")[0]
+      );
 
-    if (extraExportArg === "flac" || extraExportArg === "flacandmp3") {
-      await mkdirp(subFlacOutputDir);
-    }
+      await mkdirp(subWavOutputDir);
 
-    if (extraExportArg === "mp3" || extraExportArg === "flacandmp3") {
-      await mkdirp(subMp3OutputDir);
-    }
+      if (extraExportArg === "flac" || extraExportArg === "flacandmp3") {
+        await mkdirp(subFlacOutputDir);
+      }
 
-    for (createdFile of createdFiles) {
-      await convertWav(subWavOutputDir, processingDir, createdFile);
+      if (extraExportArg === "mp3" || extraExportArg === "flacandmp3") {
+        await mkdirp(subMp3OutputDir);
+      }
+
+      const createdFiles = fs.readdirSync(processingDir);
+
+      await Promise.all(
+        createdFiles.map(async (createdFile) => {
+          await wem2wavPool.exec({
+            outputDir: subWavOutputDir,
+            createdFile,
+            processingDir,
+          });
+        })
+      );
 
       switch (extraExportArg) {
         case "flac":
-          await convertFlac(subFlacOutputDir, subWavOutputDir, createdFile);
-
-          console.log(
-            `${pckFile} -> ${createdFile} -> ${
-              createdFile.split(".")[0]
-            }.wav -> ${createdFile.split(".")[0]}.flac`
+          await Promise.all(
+            createdFiles.map(async (createdFile) => {
+              await wav2flacPool.exec({
+                inputDir: subWavOutputDir,
+                outputDir: subFlacOutputDir,
+                createdFile,
+              });
+            })
           );
           break;
         case "mp3":
-          await convertMp3(subMp3OutputDir, subWavOutputDir, createdFile);
-
-          console.log(
-            `${pckFile} -> ${createdFile} -> ${
-              createdFile.split(".")[0]
-            }.wav -> ${createdFile.split(".")[0]}.mp3`
+          await Promise.all(
+            createdFiles.map(async (createdFile) => {
+              await wav2mp3Pool.exec({
+                inputDir: subWavOutputDir,
+                outputDir: subMp3OutputDir,
+                createdFile,
+              });
+            })
           );
           break;
         case "flacandmp3":
           await Promise.all([
-            convertFlac(subFlacOutputDir, subWavOutputDir, createdFile),
-            convertMp3(subMp3OutputDir, subWavOutputDir, createdFile),
+            ...createdFiles.map(async (createdFile) => {
+              await wav2flacPool.exec({
+                inputDir: subWavOutputDir,
+                outputDir: subFlacOutputDir,
+                createdFile,
+              });
+            }),
+            ...createdFiles.map(async (createdFile) => {
+              await wav2mp3Pool.exec({
+                inputDir: subWavOutputDir,
+                outputDir: subMp3OutputDir,
+                createdFile,
+              });
+            }),
           ]);
-
-          console.log(
-            `${pckFile} -> ${createdFile} -> ${
-              createdFile.split(".")[0]
-            }.wav -> ${createdFile.split(".")[0]}.flac -> ${
-              createdFile.split(".")[0]
-            }.mp3`
-          );
           break;
         default:
-          console.log(
-            `${pckFile} -> ${createdFile} -> ${createdFile.split(".")[0]}.wav`
-          );
           break;
       }
-    }
-  }
+    })
+  );
 
-  await rmraf(baseProcessingDir);
+  await rmraf(path.join(".", "processing"));
+
+  process.exit();
 };
 
 main();
