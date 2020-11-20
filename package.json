@@ -4,6 +4,7 @@
   "description": "Convert Genshin Impact .pck files into various workable files",
   "main": "decode.js",
   "dependencies": {
+    "arg": "^5.0.0",
     "mkdirp": "^1.0.4",
     "node-worker-threads-pool": "^1.4.2"
   },

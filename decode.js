@@ -15,38 +15,45 @@ const { pck2wem } = require("./helpers/pck2wem");
 const { wem2wav } = require("./helpers/wem2wav");
 const { wav2flac } = require("./helpers/wav2flac");
 const { wav2mp3 } = require("./helpers/wav2mp3");
-const { basename } = require("path");
+const arg = require("arg");
 
 const cpuCount = os.cpus().length;
 
 const main = async () => {
-  const args = process.argv.slice(2);
-  const argsv = args.join(" ");
-  let [input, extra] = [argsv.split("--input ")[1], argsv.split("--audio ")[1]];
-  if (!input) return console.error("--input required");
-  const inputArg = input.split(" ")[0];
-  const extraArg = extra ? extra.split(" ")[0] : extra;
+  const args = arg({
+    // Types
+    "--input": String,
+    "--audio": arg.flag((val) => ["flac", "mp3", "flacandmp3"].includes(val) ? val : null),
+    "--verbose": arg.COUNT,
+
+    // Aliases
+    "-i": "--input",
+    "-a": "--audio",
+    "-v": "--verbose",
+  });
+  if (args['--verbose']) console.log('Verbose logging enabled');
   const pckFiles = fs
-    .readdirSync(path.resolve(inputArg))
+    .readdirSync(path.resolve(args['--input']))
     .filter((f) => f.toLowerCase().endsWith(".pck"));
 
   console.info(`Found ${pckFiles.length} pck files`);
-
-  const extraExportArg = extraArg || "";
+  if (args['--verbose']) console.log('Input: ' + args['--input'], 'Audio: ' + args['--audio']);
 
   const pck2wemPool = new StaticPool({ size: cpuCount, task: pck2wem });
   const wem2wavPool = new StaticPool({ size: cpuCount, task: wem2wav });
   const wav2flacPool = new StaticPool({ size: cpuCount, task: wav2flac });
   const wav2mp3Pool = new StaticPool({ size: cpuCount, task: wav2mp3 });
-
   await Promise.all(
     pckFiles
-      .map((file) => ({ filename: file, path: path.join(inputArg, file) }))
+      .map((file) => ({ filename: file, path: path.join(args['--input'], file) }))
       .map(async (pckFile) => {
         const dirName = pckFile.filename.split(".")[0];
         const processingDir = path.join(".", "processing", dirName);
         await mkdirp(processingDir);
+        
+        if (args['--verbose']) console.log('Processing: ' + pckFile.path);
         await pck2wemPool.exec({ pckFile: pckFile.path, processingDir });
+        if (args['--verbose']) console.log('Finished: ' + pckFile.path);
 
         const subWavOutputDir = path.join(".", "output", "WAV", dirName);
         const subFlacOutputDir = path.join(".", "output", "FLAC", dirName);
@@ -54,11 +61,11 @@ const main = async () => {
 
         await mkdirp(subWavOutputDir);
 
-        if (extraExportArg === "flac" || extraExportArg === "flacandmp3") {
+        if (args['--audio'] === "flac" || args['--audio'] === "flacandmp3") {
           await mkdirp(subFlacOutputDir);
         }
 
-        if (extraExportArg === "mp3" || extraExportArg === "flacandmp3") {
+        if (args['--audio'] === "mp3" || args['--audio'] === "flacandmp3") {
           await mkdirp(subMp3OutputDir);
         }
 
@@ -74,7 +81,7 @@ const main = async () => {
           })
         );
 
-        switch (extraExportArg) {
+        switch (args['--audio']) {
           case "flac":
             await Promise.all(
               createdFiles.map(async (createdFile) => {
@@ -121,6 +128,7 @@ const main = async () => {
       })
   );
 
+  if (args['--verbose']) console.log('Removing processing folder');
   await rmraf(path.join(".", "processing"));
 
   process.exit();
