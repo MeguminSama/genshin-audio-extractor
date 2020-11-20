@@ -22,7 +22,7 @@ const cpuCount = os.cpus().length;
 const main = async () => {
   const args = process.argv.slice(2);
   const argsv = args.join(" ");
-  let [input, extra] = [argsv.split("--input ")[1], argsv.split("--args ")[1]];
+  let [input, extra] = [argsv.split("--input ")[1], argsv.split("--audio ")[1]];
   if (!input) return console.error("--input required");
   const inputArg = input.split(" ")[0];
   const extraArg = extra ? extra.split(" ")[0] : extra;
