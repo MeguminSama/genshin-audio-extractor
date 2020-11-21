@@ -8,7 +8,7 @@
 GenshinImpact_Data/StreamingAssets/Audio/GeneratedSoundBanks/Windows
 ```
 
-Move the .pck files you want to extract into the `input` folder. The files *must* be directly inside the folder - no subdirectories.
+Move the .pck files you want to extract into a folder. The files *must* be directly inside the folder - no subdirectories.
 
 2. install dependencies
 
@@ -19,10 +19,10 @@ npm install
 3. Run the program
 
 ```bash
-node decode.js
+node decode.js --input <your specified input>
 ```
 
-The files in `./input` will be converted to .wav files inside `./output`.
+The files in `<your specified input>` will be converted to .wav files inside `./output`.
 
 ## Options
 
@@ -31,7 +31,7 @@ You can pass an optional argument to export the audio in different formats.
 Valid arguments are `flac`, `mp3` and `flacandmp3`
 
 ```bash
-node decode.js flac
+node decode.js --input flac --audio flac
 ```
 
 Encoding details
