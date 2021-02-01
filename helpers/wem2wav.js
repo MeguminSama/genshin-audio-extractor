@@ -9,7 +9,7 @@ exports.wem2wav = wem2wav = async ({
   const vgmstream = path.join(".", "libs", "vgmstream-cli.exe");
   const outputFile = path.join(
     outputDir,
-    createdFile.split(".")[0] + ".wav"
+    createdFile.substr(0, createdFile.lastIndexOf('.')) + ".wav"
   );
   const createdFilePath = path.join(processingDir, createdFile);
 
