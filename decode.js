@@ -47,7 +47,7 @@ const main = async () => {
     pckFiles
       .map((file) => ({ filename: file, path: path.join(args['--input'], file) }))
       .map(async (pckFile) => {
-        const dirName = pckFile.filename.split(".")[0];
+        const dirName = pckFile.filename.substr(0, pckFile.filename.lastIndexOf('.'))
         const processingDir = path.join(".", "processing", dirName);
         await mkdirp(processingDir);
         
