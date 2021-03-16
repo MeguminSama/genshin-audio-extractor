@@ -1,26 +1,3 @@
-const ffmpeg = async (debug, outDir, srcDir, file, format) => {
-  const options = {
-    flac: (i, o) => ['-i', i, '-y', '-af', 'aformat=s16:44100', o],
-    mp3 : (i, o) => ['-i', i, '-y', '-ar', '44100', '-b:a', '320k', 'aformat=s16:44100', o],
-  }
-
-  const {Terminal} = require('./helpers/Terminal');
-  const terminal   = Terminal(debug);
-
-  const path = require('path');
-  const util = require('util');
-  const exec = util.promisify(require('child_process').execFile);
-
-  const program = path.resolve('.', 'libs', 'ffmpeg.exe');
-  const name    = path.parse(file).name;
-  const source  = path.resolve(srcDir, `${name}.wav`);
-  const output  = path.resolve(outDir, `${name}.${format}`);
-
-  terminal.debug(`[WAV -> ${format.toUpperCase()}] Converting ${name}...`);
-  await exec(program, options[format](source, output));
-  terminal.debug(`[WAV -> ${format.toUpperCase()}] ${name} converted`)
-}
-
 exports.pck2wem = async ({debug, outDir, file}) => {
 
   const {Terminal} = require('./helpers/Terminal');
@@ -55,15 +32,44 @@ exports.wem2wav = async ({debug, outDir, srcDir, file}) => {
 
   terminal.debug(`[WEM -> WAV] Converting ${name}...`);
   await exec(program, ['-o', output, source]);
-  terminal.debug(`[WEM -> WAV] ${name} converted.`)
+  terminal.debug(`[WEM -> WAV] ${name} converted.`);
 };
 
 exports.wav2flac = async ({debug, outDir, srcDir, file}) => {
-  await ffmpeg(debug, outDir, srcDir, file, 'flac')
+  const {Terminal} = require('./helpers/Terminal');
+  const terminal   = Terminal(debug);
+
+  const path = require('path');
+  const util = require('util');
+  const exec = util.promisify(require('child_process').execFile);
+
+  const program = path.resolve('.', 'libs', 'ffmpeg.exe');
+  const name    = path.parse(file).name;
+  const source  = path.resolve(srcDir, `${name}.wav`);
+  const output  = path.resolve(outDir, `${name}.flac`);
+
+  terminal.debug(`[WAV -> MP3] Converting ${name}...`);
+  await exec(program, ['-i', source, '-y', '-af', 'aformat=s16:44100', output]);
+  terminal.debug(`[WAV -> MP3] ${name} converted`)
 }
 
 exports.wav2mp3 = async ({debug, outDir, srcDir, file}) => {
-  await ffmpeg(debug, outDir, srcDir, file, 'mp3')
+
+  const {Terminal} = require('./helpers/Terminal');
+  const terminal   = Terminal(debug);
+
+  const path = require('path');
+  const util = require('util');
+  const exec = util.promisify(require('child_process').execFile);
+
+  const program = path.resolve('.', 'libs', 'ffmpeg.exe');
+  const name    = path.parse(file).name;
+  const source  = path.resolve(srcDir, `${name}.wav`);
+  const output  = path.resolve(outDir, `${name}.mp3`);
+
+  terminal.debug(`[WAV -> MP3] Converting ${name}...`);
+  await exec(program, ['-i', source, '-y', '-ar', '44100', '-b:a', '320k', output]);
+  terminal.debug(`[WAV -> MP3] ${name} converted`)
 }
 
 
