@@ -5,14 +5,13 @@
  * When modifying or redistributing this project, do not modify this notice.
  */
 
-const {Terminal}                            = require('./helpers/Terminal');
-const os                                    = require("os");
-const fs                                    = require("fs");
-const path                                  = require("path");
-const mkdirp                                = require("mkdirp");
-const {StaticPool}                          = require("node-worker-threads-pool");
-const {rmraf}                               = require("./helpers/rmraf");
-const {pck2wem, wem2wav, wav2flac, wav2mp3} = require('./helpers/converters');
+const {FileProcessor} = require('./helpers/FileProcessor');
+const os              = require("os");
+const fs              = require("fs");
+const path            = require("path");
+const {rmraf}         = require("./helpers/rmraf");
+const {Progression}   = require('./helpers/Progression');
+const term            = require('terminal-kit').terminal;
 
 const arg      = require("arg");
 const cpuCount = os.cpus().length;
@@ -31,131 +30,55 @@ const main = async () => {
     "-v": "--verbose",
   });
 
-  const debug    = args['--verbose'] != null;
-  const terminal = Terminal(debug);
+  const inputFolder  = path.resolve(args['--input']);
+  const outputFormat = args['--audio'];
 
-  terminal.info('== Genshin Audio Extractor - Provided by MeguminSama')
-  terminal.debug('Verbose mode enabled.');
+  term.clear();
 
-  const inputFolder  = args['--input'];
-  const outputFormat = args['--audio'] ?? 'mp3';
+  term.bold(' Input ');
+  term.styleReset();
+  term.yellow(inputFolder);
+  term.styleReset();
 
-  terminal.debug(`Input Folder: ${inputFolder}`);
-  terminal.debug(`Output Format: ${outputFormat}`);
+  term.bold('\nFormat ');
+  term.styleReset();
+  term.yellow(outputFormat ?? 'wav');
+  term.styleReset();
 
-  terminal.info('Listing pck files...')
-  const pckFiles = fs.readdirSync(path.resolve(args['--input'])).filter((f) => f.toLowerCase().endsWith(".pck"));
-  terminal.info(`Found ${pckFiles.length} pck files`);
-
-  terminal.debug('Creating converters pools...');
-  const pck2wemPool  = new StaticPool({size: cpuCount, task: pck2wem});
-  const wem2wavPool  = new StaticPool({size: cpuCount, task: wem2wav});
-  const wav2flacPool = new StaticPool({size: cpuCount, task: wav2flac});
-  const wav2mp3Pool  = new StaticPool({size: cpuCount, task: wav2mp3});
-
-  terminal.info('Starting extraction...')
-  await Promise.all(
-    pckFiles
-      .map((file) => ({filename: file, path: path.join(inputFolder, file)}))
-      .map(async (pckFile) => {
-        const dirName       = pckFile.filename.substr(0, pckFile.filename.lastIndexOf('.'))
-        const processingDir = path.join(".", "processing", dirName);
-        await mkdirp(processingDir);
-
-        terminal.info(`Processing ${pckFile.path}`);
-        await pck2wemPool.exec({debug, outDir: processingDir, file: pckFile.path});
-        terminal.info(`Finished ${pckFile.path}`);
-
-        const subWavOutputDir  = path.join(".", "output", "WAV", dirName);
-        const subFlacOutputDir = path.join(".", "output", "FLAC", dirName);
-        const subMp3OutputDir  = path.join(".", "output", "MP3", dirName);
-
-        await mkdirp(subWavOutputDir);
-
-        if (outputFormat.includes('flac')) {
-          await mkdirp(subFlacOutputDir);
-        }
-
-        if (outputFormat.includes('mp3')) {
-          await mkdirp(subMp3OutputDir);
-        }
-
-        terminal.info('Listing wem files...')
-        const createdFiles = fs.readdirSync(processingDir);
-        terminal.info(`Found ${createdFiles.length} wem files.`);
+  const progress = new Progression(' Total', 3);
+  progress.setProgress(0);
 
 
-        await Promise.all(
-          createdFiles.map(async (createdFile) => {
-            await wem2wavPool.exec({
-              debug,
-              outDir: subWavOutputDir,
-              srcDir: processingDir,
-              file  : createdFile
-            });
-          })
-        );
+  const files = fs.readdirSync(inputFolder).filter((f) => f.toLowerCase().endsWith(".pck"));
 
-        switch (args['--audio']) {
-          case "flac":
-            await Promise.all(
-              createdFiles.map(async (createdFile) => {
-                await wav2flacPool.exec({
-                  debug,
-                  outDir: subFlacOutputDir,
-                  srcDir: subWavOutputDir,
-                  file  : createdFile
-                });
-              })
-            );
-            break;
-          case "mp3":
-            await Promise.all(
-              createdFiles.map(async (createdFile) => {
-                await wav2mp3Pool.exec({
-                  debug,
-                  outDir: subMp3OutputDir,
-                  srcDir: subWavOutputDir,
-                  file  : createdFile
-                });
-              })
-            );
-            break;
-          case "flacandmp3":
-            await Promise.all([
-              ...createdFiles.map(async (createdFile) => {
-                await wav2flacPool.exec({
-                  debug,
-                  outDir: subFlacOutputDir,
-                  srcDir: subWavOutputDir,
-                  file  : createdFile
-                });
-              }),
-              ...createdFiles.map(async (createdFile) => {
-                await wav2mp3Pool.exec({
-                  debug,
-                  outDir: subMp3OutputDir,
-                  srcDir: subWavOutputDir,
-                  file  : createdFile
-                });
-              }),
-            ]);
-            break;
-          default:
-            break;
-        }
-      })
-  );
 
-  terminal.info('Removing processing folder...')
+  const processors = files
+    .map((file) => ({
+      filename: file,
+      path    : path.join(inputFolder, file)
+    }))
+    .map((pck) => {
+      progress.addStep(pck.filename)
+      return new FileProcessor(pck.path, pck.filename, outputFormat, cpuCount);
+    });
+
+  for (let i = 0; i < processors.length; i++) {
+    const proc = processors[i];
+    progress.nextStep();
+    await proc.execute();
+    progress.setProgress(i / processors.length);
+  }
+
+  progress.nextStep();
+  progress.setProgress(1);
+
   await rmraf(path.join(".", "processing"));
-  terminal.info('Extraction finished.')
 };
 
 main().then(() => {
   process.exit();
 }).catch((e) => {
   console.log(e);
-  console.error('Something happened during extraction. Use --verbose to display more information during the execution.');
+  console.error('Something happened during extraction.');
   process.exit();
 });
