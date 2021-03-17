@@ -54,3 +54,26 @@ mp3: 320kbit/s, 44100 sample rate
 - [x] Multithreading
 
 - [ ] More?
+
+
+# Fork Update Note
+
+The main goal of this branch on the fork is to add some progress bar while processing files. Some refactor has also been done while doing so.
+
+### 🟢 Added terminal-kit
+
+This has been install to add 2 progress bars to the program: One for the global processing of the input folder, and another one to display the progression + step on the file conversion.
+
+### 🟢 Grouped converters all together
+
+All converters has been grouped in the same file and refactored to have a same arguments order and uses the same code to generate filename.
+
+### 🟠 Removed the pck2wem pool executor
+
+This will be surely added back in future commit as I was mainly testing the behavior of the progress bars with StaticPools
+
+
+## TODO
+
+- [ ] Add back the StaticPool for PCK 2 WEM converter (and the progressbar along with it).
+- [ ] Doing better JSDoc.
