@@ -6,7 +6,8 @@
   "dependencies": {
     "arg": "^5.0.0",
     "mkdirp": "^1.0.4",
-    "node-worker-threads-pool": "^1.4.2"
+    "node-worker-threads-pool": "^1.4.2",
+    "terminal-kit": "^2.0.5"
   },
   "engines": {
     "node": ">=12.x"
