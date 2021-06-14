@@ -15,6 +15,7 @@ const { pck2wem } = require("./helpers/pck2wem");
 const { wem2wav } = require("./helpers/wem2wav");
 const { wav2flac } = require("./helpers/wav2flac");
 const { wav2mp3 } = require("./helpers/wav2mp3");
+const { wav2ogg } = require("./helpers/wav2ogg");
 const arg = require("arg");
 
 const cpuCount = os.cpus().length;
@@ -43,6 +44,7 @@ const main = async () => {
   const wem2wavPool = new StaticPool({ size: cpuCount, task: wem2wav });
   const wav2flacPool = new StaticPool({ size: cpuCount, task: wav2flac });
   const wav2mp3Pool = new StaticPool({ size: cpuCount, task: wav2mp3 });
+  const wav2oggPool = new StaticPool({ size: cpuCount, task: wav2ogg });
   await Promise.all(
     pckFiles
       .map((file) => ({ filename: file, path: path.join(args['--input'], file) }))
@@ -50,7 +52,7 @@ const main = async () => {
         const dirName = pckFile.filename.substr(0, pckFile.filename.lastIndexOf('.'))
         const processingDir = path.join(".", "processing", dirName);
         await mkdirp(processingDir);
-        
+
         if (args['--verbose']) console.log('Processing: ' + pckFile.path);
         await pck2wemPool.exec({ pckFile: pckFile.path, processingDir });
         if (args['--verbose']) console.log('Finished: ' + pckFile.path);
@@ -102,7 +104,22 @@ const main = async () => {
               })
             );
             break;
-          case "flacandmp3":
+          case "ogg":
+            await mkdirp(subOggOutputDir);
+            await Promise.all(
+              createdFiles.map(async (createdFile) => {
+                await wav2oggPool.exec({
+                  inputDir: subWavOutputDir,
+                  outputDir: subOggOutputDir,
+                  createdFile,
+                });
+              })
+            );
+            break;
+          case "all":
+            await mkdirp(subFlacOutputDir);
+            await mkdirp(subMp3OutputDir);
+            await mkdirp(subOggOutputDir);
             await Promise.all([
               ...createdFiles.map(async (createdFile) => {
                 await wav2flacPool.exec({
@@ -115,6 +132,13 @@ const main = async () => {
                 await wav2mp3Pool.exec({
                   inputDir: subWavOutputDir,
                   outputDir: subMp3OutputDir,
+                  createdFile,
+                });
+              }),
+              ...createdFiles.map(async (createdFile) => {
+                await wav2oggPool.exec({
+                  inputDir: subWavOutputDir,
+                  outputDir: subOggOutputDir,
                   createdFile,
                 });
               }),
