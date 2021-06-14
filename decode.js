@@ -23,7 +23,7 @@ const main = async () => {
   const args = arg({
     // Types
     "--input": String,
-    "--audio": arg.flag((val) => ["flac", "mp3", "flacandmp3"].includes(val) ? val : null),
+    "--audio": String,
     "--verbose": arg.COUNT,
 
     // Aliases
@@ -58,16 +58,12 @@ const main = async () => {
         const subWavOutputDir = path.join(".", "output", "WAV", dirName);
         const subFlacOutputDir = path.join(".", "output", "FLAC", dirName);
         const subMp3OutputDir = path.join(".", "output", "MP3", dirName);
+        const subOggOutputDir = path.join(".", "output", "OGG", dirName);
 
         await mkdirp(subWavOutputDir);
 
-        if (args['--audio'] === "flac" || args['--audio'] === "flacandmp3") {
-          await mkdirp(subFlacOutputDir);
-        }
-
-        if (args['--audio'] === "mp3" || args['--audio'] === "flacandmp3") {
-          await mkdirp(subMp3OutputDir);
-        }
+        if (!["mp3", "flac", "ogg", "all"].includes(args['--audio']))
+          console.log(`'${args['--audio']}' is not a valid audio export option, ignoring`)
 
         const createdFiles = fs.readdirSync(processingDir);
 
@@ -83,6 +79,7 @@ const main = async () => {
 
         switch (args['--audio']) {
           case "flac":
+            await mkdirp(subFlacOutputDir);
             await Promise.all(
               createdFiles.map(async (createdFile) => {
                 await wav2flacPool.exec({
@@ -94,6 +91,7 @@ const main = async () => {
             );
             break;
           case "mp3":
+            await mkdirp(subMp3OutputDir);
             await Promise.all(
               createdFiles.map(async (createdFile) => {
                 await wav2mp3Pool.exec({
