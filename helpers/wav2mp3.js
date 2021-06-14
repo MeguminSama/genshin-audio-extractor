@@ -1,14 +1,13 @@
-exports.wav2mp3 = async ({outputDir, inputDir, createdFile}) => {
+exports.wav2mp3 = async ({ outputDir, inputDir, createdFile }) => {
   const path = require("path");
   const util = require("util");
   const exec = util.promisify(require("child_process").execFile);
   const ffmpeg = path.join(".", "libs", "ffmpeg.exe");
-  const outputFile = path.join(
-    outputDir,
-    createdFile.split(".")[0] + ".mp3"
-  );
-  const wavFilePath = path.join(inputDir, createdFile.split(".")[0] + ".wav");
-  
+  const fileNameNoExt = createdFile.substr(0, createdFile.lastIndexOf('.'));
+  const pckFileNameNoExt = createdFile.substr(0, createdFile.lastIndexOf('_'));
+  const outputFile = path.join(outputDir, fileNameNoExt + ".mp3");
+  const wavFilePath = path.join(inputDir, fileNameNoExt + ".wav");
+
   await exec(ffmpeg, [
     "-i",
     wavFilePath,
@@ -21,8 +20,7 @@ exports.wav2mp3 = async ({outputDir, inputDir, createdFile}) => {
   ]);
 
   console.log(
-    `${createdFile.split("_")[0]}.pck -> ${createdFile} -> ${createdFile.split(".")[0]}.wav -> ${
-      createdFile.split(".")[0]
+    `${pckFileNameNoExt}.pck -> ${createdFile} -> ${fileNameNoExt}.wav -> ${fileNameNoExt
     }.mp3`
   );
 };
